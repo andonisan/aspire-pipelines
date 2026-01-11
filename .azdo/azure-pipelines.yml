@@ -1,0 +1,57 @@
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  DOTNET_VERSION: '10.x'
+  NODE_VERSION: '20.x'
+  AZURE_SUBSCRIPTION: 'your-azure-subscription-name'
+  AZURE_SUBSCRIPTION_ID: 'your-subscription-id'
+  AZURE_LOCATION: 'eastus'
+
+stages:
+  - stage: CI
+    displayName: 'Continuous Integration'
+    jobs:
+      - job: Build_and_Test
+        displayName: 'Build and Test'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'Install .NET SDK'
+            inputs:
+              version: '$(DOTNET_VERSION)'
+              includePreviewVersions: true
+
+          - script:
+              curl -sSL https://aspire.dev/install.sh
+            displayName: 'Install Aspire CLI'
+
+          - script: |
+              aspire do ci
+            displayName: 'Run Aspire CI Pipeline'
+            
+  - stage: CD
+    displayName: 'Continuous Deployment'
+    dependsOn: CI
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: Deploy
+        displayName: 'Deploy to Azure'
+        environment: 'production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: UseDotNet@2
+                  displayName: 'Install .NET SDK'
+                  inputs:
+                    version: '$(DOTNET_VERSION)'
+                    includePreviewVersions: true
+
+                - checkout: self
+
+                - script: |
+                    cd src/aspire-pipelines.AppHost
+                    aspire deploy --subscription-id $(AZURE_SUBSCRIPTION_ID) --location $(AZURE_LOCATION)
+                  displayName: 'Deploy with Aspire'
+                  env:
+                    AZURE_SUBSCRIPTION_ID: $(AZURE_SUBSCRIPTION_ID)

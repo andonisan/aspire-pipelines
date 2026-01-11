@@ -1,0 +1,62 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '10.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  ci:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          include-prerelease: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Aspire CLI
+        run: curl -sSL https://aspire.dev/install.sh | bash
+
+      - name: Run Aspire CI Pipeline
+        working-directory: src/aspire-pipelines.AppHost
+        run: aspire do ci
+
+  cd:
+    name: Continuous Deployment
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Aspire CLI
+        run: curl -sSL https://aspire.dev/install.sh | bash
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy with Aspire
+        working-directory: src/aspire-pipelines.AppHost
+        run: |
+          aspire deploy --subscription-id ${{ secrets.AZURE_SUBSCRIPTION_ID }} --location ${{ secrets.AZURE_LOCATION }}

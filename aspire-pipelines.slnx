@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/shared/">
+    <File Path="global.json" />
+    <File Path="README.md" />
+  </Folder>
+  <Project Path="src/aspire-pipelines.AppHost/aspire-pipelines.AppHost.csproj" />
+  <Project Path="src/aspire-pipelines.Server/aspire-pipelines.Server.csproj" />
+  <Project Path="src/frontend/frontend.esproj">
+    <Build />
+  </Project>
+</Solution>
