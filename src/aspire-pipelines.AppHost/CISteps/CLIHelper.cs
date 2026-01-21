@@ -11,13 +11,13 @@ internal static class CLIHelper
         var psi = GetProcessStartInfo(fileName, args, workingDir);
         using var proc = Process.Start(psi) ?? throw new InvalidOperationException($"Failed to start '{fileName} {args}'");
         await proc.WaitForExitAsync();
-         if (proc.ExitCode != 0)
+        if (proc.ExitCode != 0)
         {
             throw new Exception($"Process '{fileName} {args}' failed with exit code {proc.ExitCode}");
         }
         return await proc.StandardOutput.ReadToEndAsync();
     }
-    
+
     /// Helper to run external processes and stream output into pipeline logs
     public static async Task RunProcess(string fileName, string args, string workingDir, ILogger? logger = null)
     {

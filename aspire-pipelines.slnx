@@ -8,4 +8,5 @@
   <Project Path="src/frontend/frontend.esproj">
     <Build />
   </Project>
+  <Project Path="tests/UnitTest/UnitTest.csproj" />
 </Solution>

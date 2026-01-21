@@ -25,13 +25,13 @@ public static class JavaScriptCIStepsExtensions
                 };
             });
         }
-        
+
         public IResourceBuilder<JavaScriptAppResource> WithLintingStep()
         {
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource; // this is no longer a JavaScriptAppResource in pipeline execution.
-                
+
                 var frontendDir = resource.WorkingDirectory;
                 string packageManager = resource.PackageManager;
                 return new PipelineStep

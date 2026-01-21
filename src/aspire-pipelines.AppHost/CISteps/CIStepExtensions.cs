@@ -80,7 +80,7 @@ public static class CIStepExtensions
                 },
                 DependsOnSteps = [WellKnownCIStepNames.Setup, WellKnownCIStepNames.Install, WellKnownCIStepNames.Lint, WellKnownCIStepNames.Test]
             });
-            
+
             return builder
                 .WithSetup()
                 .WithInstallation()
@@ -171,7 +171,7 @@ public static class CIStepExtensions
                     };
                 });
         }
-        
+
         internal string LintingStepName => $"{WellKnownCIStepNames.Lint}-{builder.Resource.Name}";
 
 
@@ -199,7 +199,7 @@ public static class CIStepExtensions
                     };
                 });
         }
-        
+
         internal string TestingStepName => $"{WellKnownCIStepNames.Test}-{builder.Resource.Name}";
     }
 }

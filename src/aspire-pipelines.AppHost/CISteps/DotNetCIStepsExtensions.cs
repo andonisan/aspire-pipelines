@@ -23,7 +23,7 @@ public static class DotNetCIStepsExtensions
                 return new PipelineStep
                 {
                     Name = $"{WellKnownCIStepNames.Install}-dotnet-restore-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", string.Join(" ", ["restore", ..args]), workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet", string.Join(" ", ["restore", .. args]), workingDir, ctx.Logger),
                     RequiredBySteps = [WellKnownCIStepNames.Install]
                 };
             });
@@ -52,12 +52,12 @@ public static class DotNetCIStepsExtensions
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource;
-                var workingDir = ".";
+                var workingDir = "../..";
 
                 return new PipelineStep
                 {
                     Name = $"{WellKnownCIStepNames.Lint}-dotnet-format-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", "format --verify-no-changes --no-restore", workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet", "format aspire-pipelines.slnx --verify-no-changes --no-restore", workingDir, ctx.Logger),
                     RequiredBySteps = [WellKnownCIStepNames.Lint],
                     DependsOnSteps = [$"dotnet-build-{resource.Name}"]
                 };
@@ -69,12 +69,12 @@ public static class DotNetCIStepsExtensions
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource;
-                var workingDir = ".";
+                var workingDir = "../..";
 
                 return new PipelineStep
                 {
                     Name = $"{WellKnownCIStepNames.Test}-dotnet-test-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", $"test --no-build --configuration {configuration}", workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet", $"test aspire-pipelines.slnx --configuration {configuration}", workingDir, ctx.Logger),
                     RequiredBySteps = [WellKnownCIStepNames.Test],
                     DependsOnSteps = [$"dotnet-build-{resource.Name}"]
                 };

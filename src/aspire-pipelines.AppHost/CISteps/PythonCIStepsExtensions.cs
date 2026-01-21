@@ -36,7 +36,7 @@ public static class PythonCIStepsExtensions
                 }
                 catch (Exception e)
                 {
-                    stepContext.Logger.LogInformation("uv not installed - installing version: {uvVersion}", uvVersion ?? "latest");
+                    stepContext.Logger.LogInformation("uv not installed - installing version: {uvVersion} reason {reason}", uvVersion ?? "latest", e.Message);
                 }
 
                 string command, args;
@@ -94,7 +94,7 @@ public static class PythonCIStepsExtensions
                     return new PipelineStep
                     {
                         Name = $"{WellKnownCIStepNames.Install}-uv-{resource.Name}",
-                        Action = async ctx => await CLIHelper.RunProcess("uv", string.Join(" ", ["sync", ..args]), resource.WorkingDirectory, ctx.Logger),
+                        Action = async ctx => await CLIHelper.RunProcess("uv", string.Join(" ", ["sync", .. args]), resource.WorkingDirectory, ctx.Logger),
                         RequiredBySteps = [builder.InstallStepName]
                     };
                 });
@@ -105,7 +105,7 @@ public static class PythonCIStepsExtensions
             return builder
                 .WithLintingSteps(
                     lintingCommands.Select<(string command, List<string> args), (string name, string command, List<string> args)>(lintCommand =>
-                        (lintCommand.command, "uv", ["run", lintCommand.command, ..lintCommand.args])));
+                        (lintCommand.command, "uv", ["run", lintCommand.command, .. lintCommand.args])));
         }
 
         public IResourceBuilder<PythonAppResource> WithLintingSteps(IEnumerable<(string name, string command, List<string> args)> lintingCommands)
@@ -143,7 +143,7 @@ public static class PythonCIStepsExtensions
                             new PipelineStep
                             {
                                 Name = $"{WellKnownCIStepNames.Test}-{testCommand.name}-{resource.Name}",
-                                Action = ctx => CLIHelper.RunProcess("uv", string.Join(" ", ["run", testCommand.command, ..testCommand.args]), appDir, ctx.Logger),
+                                Action = ctx => CLIHelper.RunProcess("uv", string.Join(" ", ["run", testCommand.command, .. testCommand.args]), appDir, ctx.Logger),
                                 DependsOnSteps = [$"{WellKnownCIStepNames.Install}-{resource.Name}"],
                                 RequiredBySteps = [$"{WellKnownCIStepNames.Test}-{resource.Name}"]
                             })

@@ -3,6 +3,12 @@ using AppHost.CISteps;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
+/*var python = builder.AddPythonApp("python", "../python")
+    .WithUvInstallationStep()
+    .WithLintingStep()
+    .WithTestStep()
+    .WithFormatCheckStep();*/
+
 var server = builder.AddProject<Projects.aspire_pipelines_Server>("server")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()
@@ -14,6 +20,7 @@ var server = builder.AddProject<Projects.aspire_pipelines_Server>("server")
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
     .WithNpm(install: true)
     .WithReference(server)
+    .WithLintingStep()
     .WaitFor(server);
 
 server.PublishWithContainerFiles(webfrontend, "wwwroot");
