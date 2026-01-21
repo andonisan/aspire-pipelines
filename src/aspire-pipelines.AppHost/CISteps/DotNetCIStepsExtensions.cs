@@ -16,14 +16,12 @@ public static class DotNetCIStepsExtensions
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource;
-                // For .NET projects, use the current directory (AppHost location)
-                // dotnet CLI will find the project based on the solution or project references
-                var workingDir = ".";
 
                 return new PipelineStep
                 {
                     Name = $"{WellKnownCIStepNames.Install}-dotnet-restore-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", string.Join(" ", ["restore", .. args]), workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet", string.Join(" ", ["restore", .. args]),
+                        WorkingDirectory(resource), ctx.Logger),
                     RequiredBySteps = [WellKnownCIStepNames.Install]
                 };
             });
@@ -34,30 +32,28 @@ public static class DotNetCIStepsExtensions
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource;
-                var workingDir = ".";
 
                 return new PipelineStep
                 {
                     Name = $"dotnet-build-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", $"build --no-restore --configuration {configuration}", workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet",
+                        $"build --no-restore --configuration {configuration}", WorkingDirectory(resource), ctx.Logger),
                     DependsOnSteps = [$"{WellKnownCIStepNames.Install}-dotnet-restore-{resource.Name}"]
                 };
             });
         }
-
-
-
+        
         public IResourceBuilder<ProjectResource> WithFormatCheckStep()
         {
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource;
-                var workingDir = "../..";
 
                 return new PipelineStep
                 {
                     Name = $"{WellKnownCIStepNames.Lint}-dotnet-format-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", "format aspire-pipelines.slnx --verify-no-changes --no-restore", workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet", "format --verify-no-changes --no-restore",
+                        WorkingDirectory(resource), ctx.Logger),
                     RequiredBySteps = [WellKnownCIStepNames.Lint],
                     DependsOnSteps = [$"dotnet-build-{resource.Name}"]
                 };
@@ -69,45 +65,35 @@ public static class DotNetCIStepsExtensions
             return builder.WithPipelineStepFactory(factoryContext =>
             {
                 var resource = factoryContext.Resource;
-                var workingDir = "../..";
 
                 return new PipelineStep
                 {
                     Name = $"{WellKnownCIStepNames.Test}-dotnet-test-{resource.Name}",
-                    Action = ctx => CLIHelper.RunProcess("dotnet", $"test aspire-pipelines.slnx --configuration {configuration}", workingDir, ctx.Logger),
+                    Action = ctx => CLIHelper.RunProcess("dotnet", $"test --configuration {configuration}",
+                        WorkingDirectory(resource), ctx.Logger),
                     RequiredBySteps = [WellKnownCIStepNames.Test],
                     DependsOnSteps = [$"dotnet-build-{resource.Name}"]
                 };
             });
         }
+    }
 
-        // Note: Overloads with string[] args temporarily removed to avoid duplicate step names
-        // Will be added back once we find a solution for the annotation issue
-        /*
-        public IResourceBuilder<ProjectResource> WithDotNetTestStep(string[] args)
+    public static string WorkingDirectory(IResource resource)
+    {
+        var initial = resource.WorkingDirectory;
+        var currentDir = initial;
+        
+        while (currentDir != null)
         {
-            if (builder.Resource.TryGetLastAnnotation<DotNetTestAnnotation>(out _))
+            var slnxFiles = Directory.GetFiles(currentDir, "*.slnx");
+            if (slnxFiles.Length > 0)
             {
-                return builder;
+                return currentDir;
             }
-
-            return builder
-                .WithAnnotation(new DotNetTestAnnotation())
-                .WithPipelineStepFactory(factoryContext =>
-                {
-                    var resource = factoryContext.Resource;
-                    var workingDir = ".";
-
-                    return new PipelineStep
-                    {
-                        Name = $"{WellKnownCIStepNames.Test}-dotnet-test-{resource.Name}",
-                        Action = ctx => CLIHelper.RunProcess("dotnet", string.Join(" ", ["test", "--no-build", ..args]), workingDir, ctx.Logger),
-                        RequiredBySteps = [WellKnownCIStepNames.Test],
-                        DependsOnSteps = [$"build-{resource.Name}"]
-                    };
-                });
+            
+            currentDir = Path.GetDirectoryName(currentDir);
         }
-        */
+        return initial;
     }
 }
 
