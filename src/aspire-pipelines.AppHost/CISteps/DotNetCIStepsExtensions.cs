@@ -42,7 +42,7 @@ public static class DotNetCIStepsExtensions
                 };
             });
         }
-        
+
         public IResourceBuilder<ProjectResource> WithFormatCheckStep()
         {
             return builder.WithPipelineStepFactory(factoryContext =>
@@ -82,7 +82,13 @@ public static class DotNetCIStepsExtensions
     {
         var initial = resource.WorkingDirectory;
         var currentDir = initial;
-        
+
+        // For ProjectResource, WorkingDirectory returns "." so we just return it
+        if (initial == ".")
+        {
+            return initial;
+        }
+
         while (currentDir != null)
         {
             var slnxFiles = Directory.GetFiles(currentDir, "*.slnx");
@@ -90,7 +96,7 @@ public static class DotNetCIStepsExtensions
             {
                 return currentDir;
             }
-            
+
             currentDir = Path.GetDirectoryName(currentDir);
         }
         return initial;

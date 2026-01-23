@@ -1146,6 +1146,316 @@ Aspire Pipelines es promisorio pero joven. Es experimental, tiene rough edges, y
 
 ---
 
+# 🌐 Alternativas de Deployment
+
+<v-clicks>
+
+### Más allá de Azure Container Apps
+
+1. **Docker Compose + SSH Deploy**
+   - Deploy a servidores remotos via SSH
+   - Ideal para VPS, on-premise, o infraestructura existente
+   - Package: `Aspire.Hosting.Docker.SshDeploy`
+
+2. **Kubernetes**
+   - Deploy a clusters K8s (AKS, EKS, GKE)
+   - Mayor control y portabilidad
+   - Requiere más configuración
+
+3. **AWS/GCP**
+   - AWS ECS/Fargate o GCP Cloud Run
+   - Menos integración nativa que Azure
+   - Necesita configuración manual adicional
+
+</v-clicks>
+
+<!--
+Aunque Azure Container Apps es la opción más integrada, Aspire soporta múltiples targets. Docker SSH Deploy es especialmente interesante para equipos que ya tienen infraestructura propia.
+-->
+
+---
+
+# 🐳 Docker SSH Deploy - Overview
+
+<v-clicks>
+
+### ¿Qué es?
+
+Extension de Aspire para desplegar aplicaciones dockerizadas a servidores remotos via SSH.
+
+### ¿Cuándo usarlo?
+
+- **VPS existente**: DigitalOcean, Linode, Hetzner
+- **On-premise**: Servidores propios en datacenter
+- **Infraestructura legacy**: Migración gradual sin reescribir todo
+- **Presupuesto limitado**: VPS es más económico que PaaS/serverless
+
+### Arquitectura
+
+```
+┌─────────────────────┐        SSH         ┌──────────────────────┐
+│   Dev Machine / CI  │───────────────────▶│   Remote Server      │
+│   aspire deploy     │                     │   docker compose up  │
+└─────────────────────┘                     └──────────────────────┘
+         │                                            │
+         │ Build & Push                               │ Pull & Run
+         ▼                                            ▼
+┌─────────────────────┐                     ┌──────────────────────┐
+│  Container Registry │────────────────────▶│   Running Containers │
+│  (Docker Hub, ACR)  │                     │   (server, frontend) │
+└─────────────────────┘                     └──────────────────────┘
+```
+
+</v-clicks>
+
+<!--
+SSH Deploy sigue el patrón tradicional de CI/CD pero orquestado por Aspire: build local, push a registry, pull en servidor remoto, y compose up.
+-->
+
+---
+
+# 🔧 Configuración de SSH Deploy
+
+````md magic-move
+```bash
+# 1. Añadir el package feed
+dotnet nuget add source \
+  https://f.feedz.io/davidfowl/aspire/nuget/index.json \
+  --name davidfowl-aspire
+
+# 2. Instalar el paquete
+aspire add docker-sshdeploy
+```
+
+```csharp
+// 3. Configurar en AppHost.cs
+var builder = DistributedApplication.CreateBuilder(args);
+
+// Definir recursos
+var server = builder.AddProject<Projects.Server>("server")
+    .PublishAsDockerFile();
+
+var frontend = builder.AddViteApp("frontend", "../frontend")
+    .PublishAsDockerFile();
+
+// Habilitar SSH deployment
+builder.AddDockerComposeEnvironment("prod")
+    .WithSshDeploySupport();
+
+builder.Build().Run();
+```
+
+```json
+// 4. Configurar appsettings.json o variables de entorno
+{
+  "Deploy": {
+    "SshHost": "your-server.com",
+    "SshUser": "deploy-user",
+    "SshKeyPath": "~/.ssh/id_rsa",
+    "RemotePath": "/opt/myapp",
+    "Registry": "myregistry.azurecr.io"
+  }
+}
+```
+
+```bash
+# 5. Deploy
+aspire deploy
+
+# El pipeline ejecuta:
+# - Build de imágenes localmente
+# - Push al registry configurado
+# - Conexión SSH al servidor
+# - Transfer de docker-compose.yml y .env
+# - docker compose up en el servidor remoto
+# - Health checks
+```
+````
+
+<!--
+La configuración es directa: instalar package, añadir WithSshDeploySupport(), configurar credenciales SSH y registry, y deploy. Aspire maneja toda la orquestación.
+-->
+
+---
+
+# 🆚 Comparación: Container Apps vs SSH Deploy
+
+| Aspecto | Azure Container Apps | Docker SSH Deploy |
+|---------|---------------------|-------------------|
+| **Infraestructura** | PaaS managed | VPS/On-premise |
+| **Costo inicial** | $0 (consumption) | Costo del VPS (~$5-50/mes) |
+| **Escalabilidad** | Auto-scaling 0-N | Manual (recursos del servidor) |
+| **Complejidad setup** | Mínima | Media (servidor + Docker + SSH) |
+| **Vendor lock-in** | Azure | Ninguno (portable) |
+| **Managed services** | SQL, Redis, etc. integrados | Self-hosted o servicios externos |
+| **Observabilidad** | Application Insights incluido | Configurar manualmente |
+| **SSL/HTTPS** | Automático | Configurar (Let's Encrypt) |
+| **Rollback** | Revisiones + traffic split | Manual (docker compose down/up) |
+| **Ideal para** | Startups, scale variable | Infraestructura existente, control total |
+
+<!--
+No hay una opción "mejor" universal. Container Apps es ideal para nuevos proyectos cloud-native. SSH Deploy es perfecto cuando ya tienes infraestructura o necesitas control total sin lock-in.
+-->
+
+---
+
+# 🔐 Seguridad en CI/CD Pipelines
+
+<v-clicks>
+
+### Best Practices
+
+1. **Secretos**
+   - Nunca en código fuente (usar .gitignore)
+   - Key Vault (Azure) o equivalentes (AWS Secrets Manager, HashiCorp Vault)
+   - Variables de entorno en CI/CD pipelines
+
+2. **Credenciales de Registry**
+   - Service Principal con permisos mínimos (Azure)
+   - IAM roles (AWS) o Service Accounts (GCP)
+   - Rotar credenciales periódicamente
+
+3. **SSH Keys**
+   - Keys dedicadas por entorno (dev, staging, prod)
+   - Sin passphrase para CI/CD (usar secrets management)
+   - Restringir IP sources cuando sea posible
+
+4. **Dependencies**
+   - Escanear vulnerabilidades (npm audit, dotnet list package --vulnerable)
+   - Lock files para reproducibilidad
+   - Renovar dependencias regularmente (Dependabot, Renovate)
+
+</v-clicks>
+
+<!--
+La seguridad no es opcional. Aspire facilita el deployment pero la responsabilidad de configurar credenciales de forma segura sigue siendo nuestra.
+-->
+
+---
+
+# 🐛 Debugging y Troubleshooting
+
+<v-clicks>
+
+### Problemas Comunes y Soluciones
+
+**1. CI Step falla sin mensaje claro**
+```bash
+# Ver logs detallados
+aspire do <step-name> --verbose
+
+# Ejecutar step individualmente
+aspire do install  # Solo install, no todo el pipeline
+```
+
+**2. Build local funciona, CI falla**
+- ✅ Verificar versión del SDK (global.json)
+- ✅ Verificar lock files actualizados (packages.lock.json, package-lock.json, uv.lock)
+- ✅ Limpiar caches: `dotnet clean`, `npm ci`
+
+**3. Deploy falla en Azure**
+```bash
+# Ver logs del deployment
+az containerapp logs show \
+  --name myapp \
+  --resource-group myapp-rg
+
+# Ver estado de revisiones
+az containerapp revision list \
+  --name myapp \
+  --resource-group myapp-rg
+```
+
+**4. Health checks fallan**
+- ✅ Verificar endpoint health check accesible
+- ✅ Revisar timeout configurado (por defecto 30s)
+- ✅ Logs de la aplicación para errores de startup
+
+</v-clicks>
+
+<!--
+Debugging de pipelines puede ser frustrante. Estas técnicas ayudan a identificar rápidamente dónde está el problema: local, CI, o deployment.
+-->
+
+---
+
+# ⚡ Optimización de Performance
+
+<v-clicks>
+
+### CI Pipeline
+
+1. **Cachear dependencias**
+   ```yaml
+   # GitHub Actions
+   - uses: actions/cache@v4
+     with:
+       path: ~/.nuget/packages
+       key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+   ```
+
+2. **Paralelizar steps independientes**
+   - Lint y Test pueden correr en paralelo
+   - Multiple projects en paralelo (cuando son independientes)
+
+3. **Incremental builds**
+   - `dotnet build` con `--no-restore`
+   - Webpack/Vite con cache habilitado
+
+### Deployment
+
+1. **Build de imágenes optimizado**
+   - Multi-stage Docker builds
+   - Layers cacheables (dependencies primero, código después)
+
+2. **Registry en misma región**
+   - Reduce latency de pull
+   - Menos transferencia de datos = deploy más rápido
+
+</v-clicks>
+
+<!--
+Performance importa en CI/CD. Un pipeline lento reduce la productividad del equipo. Estos optimizations pueden reducir tiempos de 10+ minutos a 2-3 minutos.
+-->
+
+---
+
+# 📊 Métricas de CI/CD
+
+<v-clicks>
+
+### KPIs a Monitorear
+
+1. **Lead Time for Changes**
+   - Tiempo desde commit hasta producción
+   - **Objetivo**: < 1 hora para hotfixes, < 1 día para features
+
+2. **Deployment Frequency**
+   - ¿Cuántas veces desplegamos a producción?
+   - **Elite performers**: Multiple veces al día
+
+3. **Change Failure Rate**
+   - % de deployments que causan fallos
+   - **Objetivo**: < 15%
+
+4. **Mean Time to Restore (MTTR)**
+   - Tiempo para recuperarse de un fallo
+   - **Objetivo**: < 1 hora
+
+### Herramientas
+
+- **Azure DevOps**: Analytics incluido
+- **GitHub**: Insights + GitHub Actions metrics
+- **Custom**: Export a Prometheus/Grafana
+
+</v-clicks>
+
+<!--
+Lo que no se mide, no se mejora. Estas métricas son estándares de la industria (DORA metrics) y ayudan a evaluar la madurez de tu proceso CI/CD.
+-->
+
+---
+
 # 🔮 Futuro de Aspire Pipelines
 
 <v-clicks>
@@ -1181,6 +1491,11 @@ Aspire es una apuesta estratégica de Microsoft. El roadmap es ambicioso y la co
 - [learn.microsoft.com/dotnet/aspire](https://learn.microsoft.com/dotnet/aspire)
 - [GitHub: dotnet/aspire](https://github.com/dotnet/aspire)
 
+### Deployment Alternatives
+
+- [Aspire Docker SSH Deploy](https://github.com/davidfowl/aspire-ssh-deploy) - Deploy via SSH to any server
+- [Azure Container Apps Docs](https://learn.microsoft.com/azure/container-apps/)
+
 ### Este proyecto
 
 - **Repo**: github.com/andonisan/aspire-pipelines
@@ -1192,11 +1507,12 @@ Aspire es una apuesta estratégica de Microsoft. El roadmap es ambicioso y la co
 - **Discord**: Aspire community
 - **Twitter**: #dotnetaspire
 - **YouTube**: .NET Foundation channel
+- **Blog posts**: Buscar "aspire pipelines" en Dev.to, Medium
 
 </v-clicks>
 
 <!--
-Toda la documentación y código están públicos. El proyecto de esta charla es un template reutilizable para tus propias aplicaciones.
+Toda la documentación y código están públicos. El proyecto de esta charla es un template reutilizable para tus propias aplicaciones. SSH Deploy es una alternativa interesante para infraestructura existente.
 -->
 
 ---

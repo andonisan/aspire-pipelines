@@ -111,6 +111,56 @@ Ejecuta TODOS los pasos de TODAS las tecnologías
 
 **Usado en**: Slides de introducción y demo
 
+### 6. **NUEVO** Docker SSH Deploy Architecture
+**Archivo**: `diagrams/ssh-deploy-architecture.excalidraw`  
+**Contenido**:
+```
+┌─────────────────────┐        SSH         ┌──────────────────────┐
+│   Dev Machine / CI  │───────────────────▶│   Remote Server      │
+│   aspire deploy     │                     │   docker compose up  │
+└─────────────────────┘                     └──────────────────────┘
+         │                                            │
+         │ Build & Push                               │ Pull & Run
+         ▼                                            ▼
+┌─────────────────────┐                     ┌──────────────────────┐
+│  Container Registry │────────────────────▶│   Running Containers │
+│  (Docker Hub, ACR)  │                     │   (server, frontend) │
+└─────────────────────┘                     └──────────────────────┘
+```
+
+**Usado en**: Slide "Docker SSH Deploy - Overview"
+
+### 7. **NUEVO** Deployment Options Comparison
+**Archivo**: `diagrams/deployment-comparison.excalidraw`  
+**Contenido**:
+```
+┌─────────────────────────────────────────────────────┐
+│  Azure Container Apps                               │
+│  ✅ Auto-scaling                                    │
+│  ✅ Managed services                                │
+│  ✅ $0 start (consumption)                          │
+│  ⚠️ Azure lock-in                                  │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  Docker SSH Deploy                                  │
+│  ✅ No vendor lock-in                               │
+│  ✅ Control total                                   │
+│  ✅ Infraestructura existente                       │
+│  ⚠️ Setup manual                                   │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  Kubernetes (AKS/EKS/GKE)                           │
+│  ✅ Portable multi-cloud                            │
+│  ✅ Ecosistema rico                                 │
+│  ⚠️ Complejidad alta                               │
+│  ⚠️ Overhead operacional                           │
+└─────────────────────────────────────────────────────┘
+```
+
+**Usado en**: Slide "Comparación: Container Apps vs SSH Deploy"
+
 ## 📸 Screenshots/Imágenes a Capturar
 
 ### 1. Aspire Dashboard Local

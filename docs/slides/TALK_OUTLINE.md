@@ -49,12 +49,35 @@ Al final de esta charla, los asistentes podrán:
 ### Parte 5: aspire deploy - Deployment (15 min)
 - Azure Container Apps overview
 - Arquitectura de deployment
+- **🆕 Alternativas de deployment**
+  - Docker SSH Deploy para VPS/on-premise
+  - Comparación Container Apps vs SSH Deploy
 - Gestión de secretos con Key Vault y Managed Identity
 - Configuración por entorno (dev/staging/prod)
 - Promoción entre entornos
 - Observabilidad en producción (Application Insights)
 - Rollback y blue-green deployment
 - Costos y auto-scaling
+
+### Parte 5b: Temas Avanzados (10 min) - **NUEVO**
+- **Seguridad en CI/CD Pipelines**
+  - Gestión de secretos (Key Vault, variables)
+  - Credenciales de registry
+  - SSH keys para deploy
+  - Escaneo de vulnerabilidades en dependencies
+- **Debugging y Troubleshooting**
+  - CI steps fallando
+  - Diferencias local vs CI
+  - Deploy failures en Azure
+  - Health checks
+- **Optimización de Performance**
+  - Cache en CI/CD
+  - Paralelización de steps
+  - Build incremental
+  - Docker images optimizadas
+- **Métricas de CI/CD (DORA)**
+  - Lead Time, Deployment Frequency
+  - Change Failure Rate, MTTR
 
 ### Parte 6: Demo en Vivo (5 min)
 - `aspire run` → Dashboard local
