@@ -21,13 +21,25 @@ stages:
               version: '$(DOTNET_VERSION)'
               includePreviewVersions: true
 
-          - script:
-              curl -sSL https://aspire.dev/install.sh
+          - script: |
+              curl -sSL https://aspire.dev/install.sh | bash
             displayName: 'Install Aspire CLI'
 
           - script: |
+              cd src/aspire-pipelines.AppHost
               aspire do ci
             displayName: 'Run Aspire CI Pipeline'
+
+          - script: |
+              cd src/aspire-pipelines.AppHost
+              aspire publish --output-path ./artifacts
+            displayName: 'Publish Artifacts'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Upload Artifacts'
+            inputs:
+              targetPath: 'src/aspire-pipelines.AppHost/artifacts'
+              artifactName: 'aspire-artifacts'
             
   - stage: CD
     displayName: 'Continuous Deployment'
@@ -48,6 +60,15 @@ stages:
                     includePreviewVersions: true
 
                 - checkout: self
+
+                # Note: For demonstration purposes, we download artifacts to show the CI/CD pattern.
+                # In a real deployment, you might use these artifacts directly or rely on Aspire
+                # to rebuild from source depending on your deployment strategy.
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download Artifacts (for reference)'
+                  inputs:
+                    artifactName: 'aspire-artifacts'
+                    targetPath: '$(Pipeline.Workspace)/artifacts'
 
                 - script: |
                     cd src/aspire-pipelines.AppHost
