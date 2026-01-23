@@ -26,8 +26,20 @@ stages:
             displayName: 'Install Aspire CLI'
 
           - script: |
+              cd src/aspire-pipelines.AppHost
               aspire do ci
             displayName: 'Run Aspire CI Pipeline'
+
+          - script: |
+              cd src/aspire-pipelines.AppHost
+              aspire publish --output-path ./artifacts
+            displayName: 'Publish Artifacts'
+
+          - task: PublishPipelineArtifact@1
+            displayName: 'Upload Artifacts'
+            inputs:
+              targetPath: 'src/aspire-pipelines.AppHost/artifacts'
+              artifactName: 'aspire-artifacts'
             
   - stage: CD
     displayName: 'Continuous Deployment'
@@ -48,6 +60,12 @@ stages:
                     includePreviewVersions: true
 
                 - checkout: self
+
+                - task: DownloadPipelineArtifact@2
+                  displayName: 'Download Artifacts'
+                  inputs:
+                    artifactName: 'aspire-artifacts'
+                    targetPath: '$(Pipeline.Workspace)/artifacts'
 
                 - script: |
                     cd src/aspire-pipelines.AppHost

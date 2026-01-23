@@ -861,23 +861,14 @@ CI completo: validación + generación de artefactos. Los artefactos (Docker ima
 
 ---
 
-# Azure DevOps Pipeline
+# Azure DevOps Pipeline - CI con Artefactos
 
 ```yaml {monaco}
-trigger:
-  branches:
-    include:
-      - main
-      - develop
-
-pool:
-  vmImage: 'ubuntu-latest'
-
 stages:
   - stage: CI
     displayName: 'Continuous Integration'
     jobs:
-      - job: Build
+      - job: Build_and_Test
         steps:
           - task: UseDotNet@2
             inputs:
@@ -887,10 +878,20 @@ stages:
               cd src/aspire-pipelines.AppHost
               aspire do ci
             displayName: 'Run CI Pipeline'
+            
+          - script: |
+              cd src/aspire-pipelines.AppHost
+              aspire publish --output-path ./artifacts
+            displayName: 'Publish Artifacts'
+            
+          - task: PublishPipelineArtifact@1
+            inputs:
+              targetPath: 'src/aspire-pipelines.AppHost/artifacts'
+              artifactName: 'aspire-artifacts'
 ```
 
 <!--
-Lo mismo para Azure DevOps. El pipeline YAML es mínimo y delegado en Aspire. Cambios en los steps de CI no requieren tocar el YAML del pipeline.
+Azure DevOps sigue el mismo patrón: CI + artifact publication. Los artefactos quedan disponibles para el stage de CD.
 -->
 
 ---
