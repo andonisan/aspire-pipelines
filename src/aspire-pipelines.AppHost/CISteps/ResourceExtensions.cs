@@ -15,13 +15,11 @@ internal static class ResourceExtensions
                     return execAnnotation.WorkingDirectory;
                 }
 
-                // For ProjectResource, try to use the AppModel project metadata
-                if (resource is ProjectResource projectResource)
+                // For ProjectResource, WorkingDirectory is null (no ExecutableAnnotation)
+                // Use "." (current directory) - dotnet CLI finds projects automatically from the solution
+                if (resource is ProjectResource)
                 {
-                    // Projects in Aspire have annotations with metadata, we'll need to find the actual project path
-                    // For now, we can extract it from annotations or try a different approach
-                    var annotations = projectResource.Annotations.ToList();
-                    // Log or inspect annotations to find the right one
+                    return ".";
                 }
 
                 throw new InvalidOperationException($"Could not find working directory for {resource.Name}. Resource type: {resource.GetType().Name}");
