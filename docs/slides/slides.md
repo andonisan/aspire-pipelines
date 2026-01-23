@@ -555,6 +555,161 @@ El step "ci" agregado es el que unifica todo. Define las dependencias entre stag
 
 ---
 
+# 📦 Publicación de Artefactos
+
+<v-clicks>
+
+### ¿Qué publicamos en CI?
+
+El pipeline de CI no solo valida el código, también **genera artefactos** para deployment:
+
+1. **Docker Images**
+   - Imágenes containerizadas de cada servicio
+   - Publicadas a Container Registry (Docker Hub, ACR, ECR)
+
+2. **Docker Compose Files**
+   - Manifiestos de orquestación
+   - Configuración de servicios para deploy
+
+3. **Manifiestos de Aspire**
+   - Definición de infraestructura generada
+   - Bicep/Terraform para cloud deployments
+
+4. **Binarios y Assets**
+   - Archivos compilados para deployment directo
+   - Assets estáticos (CSS, JS, imágenes)
+
+</v-clicks>
+
+<!--
+El CI no termina con los tests. La última fase crítica es publicar artefactos que serán usados en el deployment. Aspire automatiza gran parte de esto con aspire publish.
+-->
+
+---
+
+# 🐳 Generación de Imágenes Docker
+
+```csharp {monaco}
+// En AppHost: Definir recursos como containerizables
+var server = builder.AddProject<Projects.aspire_pipelines_Server>("server")
+    .PublishAsDockerFile();  // Genera Dockerfile automáticamente
+
+var frontend = builder.AddViteApp("frontend", "../frontend")
+    .PublishAsDockerFile();  // También para JavaScript
+```
+
+<v-clicks>
+
+### En el CI Pipeline:
+
+```yaml
+- name: Build and Publish Artifacts
+  run: |
+    cd src/aspire-pipelines.AppHost
+    aspire publish --output-path ./artifacts
+```
+
+### Resultado:
+- ✅ **Dockerfiles** generados automáticamente
+- ✅ **Docker Compose** file con toda la orquestación
+- ✅ **Manifiestos** de infraestructura (Bicep para Azure)
+- ✅ Imágenes listas para **push a registry**
+
+</v-clicks>
+
+<!--
+aspire publish es el comando que cierra el ciclo de CI. Genera todo lo necesario para deployment: Dockerfiles, compose files, y manifiestos de infraestructura.
+-->
+
+---
+
+# 📤 Push a Container Registry
+
+<v-clicks>
+
+### Configuración del Registry
+
+```bash
+# Azure Container Registry
+az acr login --name myregistry
+
+# Docker Hub
+docker login -u username -p password
+
+# GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u USERNAME --password-stdin
+```
+
+### Build y Push desde CI
+
+```yaml
+- name: Build and Push Docker Images
+  run: |
+    docker build -t myregistry.azurecr.io/server:${{ github.sha }} ./server
+    docker push myregistry.azurecr.io/server:${{ github.sha }}
+```
+
+### Con Aspire (automatizado):
+
+```bash
+aspire publish --output-path ./artifacts --registry myregistry.azurecr.io
+```
+
+</v-clicks>
+
+<!--
+Los artefactos deben ir a algún lugar. Container registries son el destino: ACR para Azure, ECR para AWS, Docker Hub para público, o GHCR para GitHub.
+-->
+
+---
+
+# 🔄 Flujo Completo CI → Artifacts → CD
+
+```mermaid
+graph LR
+    A[Commit] --> B[CI Pipeline]
+    B --> C[Setup]
+    C --> D[Install]
+    D --> E[Lint]
+    E --> F[Test]
+    F --> G[aspire publish]
+    
+    G --> H[Docker Images]
+    G --> I[Compose Files]
+    G --> J[Manifests]
+    
+    H --> K[Container Registry]
+    I --> L[Artifact Storage]
+    J --> L
+    
+    K --> M[CD Pipeline]
+    L --> M
+    
+    M --> N{Target?}
+    N -->|Azure| O[ACA Deploy]
+    N -->|K8s| P[kubectl apply]
+    N -->|SSH| Q[Docker Compose]
+    
+    style G fill:#4CAF50,stroke:#333,stroke-width:2px
+    style M fill:#2196F3,stroke:#333,stroke-width:2px
+```
+
+<v-clicks>
+
+### Puntos clave:
+- **CI genera artefactos** → No solo valida, produce outputs deployables
+- **Artifacts intermedios** → Registry + Storage para desacoplamiento
+- **CD consume artifacts** → No rebuild, solo deploy de lo ya validado
+- **Múltiples targets** → Mismo CI, diferente CD según necesidad
+
+</v-clicks>
+
+<!--
+Este flujo muestra la separación clara entre CI (build + test + publish) y CD (deploy). Los artefactos son el contrato entre ambos: lo que CI produce es exactamente lo que CD despliega.
+-->
+
+---
+
 # 🔐 Builds reproducibles
 
 <v-clicks>
@@ -663,7 +818,7 @@ layout: center
 
 ---
 
-# GitHub Actions
+# GitHub Actions - CI con Artefactos
 
 ```yaml {monaco}
 name: CI/CD Pipeline
@@ -686,13 +841,22 @@ jobs:
           dotnet-version: '10.0.x'
           
       - name: Run CI
-        run: |
-          cd src/aspire-pipelines.AppHost
-          aspire do ci
+        run: aspire do ci
+        working-directory: src/aspire-pipelines.AppHost
+        
+      - name: Publish Artifacts
+        run: aspire publish --output-path ./artifacts
+        working-directory: src/aspire-pipelines.AppHost
+        
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aspire-artifacts
+          path: src/aspire-pipelines.AppHost/artifacts/
 ```
 
 <!--
-La integración con GitHub Actions es trivial: setup del SDK y ejecutar aspire do ci. Todo el conocimiento de cómo hacer CI para cada tecnología está en el AppHost, no en el pipeline YAML.
+CI completo: validación + generación de artefactos. Los artefactos (Docker images, compose files, manifiestos) se suben para ser usados en deployment.
 -->
 
 ---
@@ -792,6 +956,53 @@ El pipeline ejecuta tests a todos los niveles: unitarios para lógica, integrati
 -->
 
 ---
+
+# 🎭 Deployment Workflows - Múltiples Sabores
+
+<v-clicks>
+
+### GitHub Actions soporta diferentes targets:
+
+````md magic-move
+```yaml
+# 1. Deploy a Azure Container Apps
+deploy-aca:
+  needs: ci
+  steps:
+    - name: Deploy with Aspire
+      run: aspire deploy --subscription-id ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+```
+
+```yaml
+# 2. Deploy a Kubernetes (AKS/EKS/GKE)
+deploy-aks:
+  needs: ci
+  steps:
+    - name: Set K8s Context
+      run: az aks get-credentials --name myCluster
+    - name: Deploy
+      run: kubectl apply -f ./artifacts/manifests/
+```
+
+```yaml
+# 3. Deploy via SSH (On-Prem/VPS)
+deploy-ssh:
+  needs: ci
+  steps:
+    - name: Copy artifacts
+      run: scp ./artifacts/docker-compose.yml user@server:~/app/
+    - name: Deploy
+      run: ssh user@server 'cd ~/app && docker compose up -d'
+```
+````
+
+</v-clicks>
+
+<!--
+Un solo CI, múltiples opciones de deployment. El workflow se adapta al target: Aspire CLI para Azure, kubectl para K8s, SSH+Docker Compose para self-hosted.
+-->
+
+---
 layout: center
 ---
 
@@ -801,7 +1012,124 @@ layout: center
 
 ---
 
-# ☁️ Azure Container Apps
+# 🌍 Opciones de Deployment
+
+<v-clicks>
+
+### On-Premise vs Cloud
+
+**On-Premise / Self-Hosted**
+- Control total de infraestructura
+- Datacenter propio o VPS (DigitalOcean, Hetzner, Linode)
+- Deploy con Docker SSH o Kubernetes on-prem
+- Mayor responsabilidad de mantenimiento
+
+**Cloud (PaaS/Serverless)**
+- Infraestructura gestionada por el provider
+- Menor overhead operacional
+- Auto-scaling y alta disponibilidad built-in
+- Pago por uso
+
+</v-clicks>
+
+<!--
+La primera decisión es dónde desplegar: infraestructura propia vs cloud. Cada opción tiene trade-offs de coste, control, y responsabilidad.
+-->
+
+---
+
+# ☁️ Deployment en Azure
+
+<v-clicks>
+
+### Múltiples servicios según necesidad:
+
+1. **Azure Container Apps (ACA)** ⭐ _Recomendado para Aspire_
+   - Serverless containers con auto-scaling
+   - Integración nativa con Aspire
+   - Ideal para microservicios y apps modernas
+   - Scale to zero = ahorro de costos
+
+2. **Azure Kubernetes Service (AKS)**
+   - Control total del cluster K8s
+   - Workloads complejos con requisitos específicos
+   - Mayor flexibilidad pero más gestión
+
+3. **Azure App Service**
+   - PaaS tradicional para web apps
+   - Menos containerizado, más opinado
+   - Bueno para apps monolíticas .NET
+
+4. **Azure Container Instances (ACI)**
+   - Containers individuales bajo demanda
+   - Para jobs, batch processing, o tareas puntuales
+
+</v-clicks>
+
+<!--
+Azure ofrece múltiples opciones. Container Apps es la opción sweet spot para Aspire: balance entre simplicidad y potencia, con integración de primera clase.
+-->
+
+---
+
+# 🌐 Deployment en Otros Clouds
+
+<v-clicks>
+
+### AWS
+
+- **AWS Fargate** (serverless containers, similar a ACA)
+- **Amazon ECS** (orchestration propio de AWS)
+- **Amazon EKS** (Kubernetes gestionado)
+- **AWS App Runner** (PaaS para containers)
+
+### Google Cloud Platform
+
+- **Cloud Run** (serverless containers, muy similar a ACA)
+- **Google Kubernetes Engine (GKE)** (K8s gestionado)
+- **App Engine** (PaaS tradicional)
+
+### Nota sobre integración:
+
+Aspire está **optimizado para Azure**, pero puede deployar a cualquier Kubernetes o via Docker Compose. La experiencia será menos "mágica" en otros clouds.
+
+</v-clicks>
+
+<!--
+Aspire no está atado a Azure, pero Azure Container Apps tiene la integración más pulida. Para AWS/GCP necesitarás más configuración manual o usar Kubernetes como capa de abstracción.
+-->
+
+---
+
+# 🎯 ¿Cómo elegir tu deployment target?
+
+```mermaid
+graph TD
+    A[Inicio] --> B{¿Control total<br/>de infra?}
+    B -->|Sí| C{¿Ya tienes<br/>Kubernetes?}
+    B -->|No, prefiero managed| D{¿Qué cloud?}
+    
+    C -->|Sí| E[AKS / EKS / GKE]
+    C -->|No| F[Docker SSH Deploy<br/>a VPS/On-prem]
+    
+    D -->|Azure| G{¿Complejidad<br/>de la app?}
+    D -->|AWS| H[Fargate / ECS]
+    D -->|GCP| I[Cloud Run]
+    
+    G -->|Microservicios| J[Azure Container Apps ⭐]
+    G -->|Monolito| K[App Service]
+    G -->|Muy complejo| L[AKS]
+    
+    style J fill:#4CAF50,stroke:#333,stroke-width:3px,color:#fff
+```
+
+<!--
+Árbol de decisión simplificado: ¿Necesitas control? → K8s o SSH. ¿Prefieres managed? → Elige tu cloud. Para Aspire + Azure, Container Apps es la respuesta en 90% de casos.
+-->
+
+---
+
+# ☁️ Azure Container Apps - Deep Dive
 
 <v-clicks>
 

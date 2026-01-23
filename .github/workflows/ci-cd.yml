@@ -35,9 +35,125 @@ jobs:
 
       - name: Run Aspire CI Pipeline
         run: aspire do ci
+        working-directory: src/aspire-pipelines.AppHost
         
-      - name: Create artifacts 
-        run: aspire publish 
+      - name: Publish Artifacts
+        run: aspire publish --output-path ./artifacts
+        working-directory: src/aspire-pipelines.AppHost
+        
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: aspire-artifacts
+          path: src/aspire-pipelines.AppHost/artifacts/
+          retention-days: 30
+
+  # Deployment to Azure Container Apps (ACA)
+  # Uncomment to enable automatic deployment to ACA
+  # deploy-aca:
+  #   name: Deploy to Azure Container Apps
+  #   runs-on: ubuntu-latest
+  #   needs: ci
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   environment: 
+  #     name: production-aca
+  #     url: https://your-app.azurecontainerapps.io
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Install Aspire CLI
+  #       run: curl -sSL https://aspire.dev/install.sh | bash
+  #
+  #     - name: Azure Login
+  #       uses: azure/login@v1
+  #       with:
+  #         creds: ${{ secrets.AZURE_CREDENTIALS }}
+  #
+  #     - name: Deploy with Aspire
+  #       working-directory: src/aspire-pipelines.AppHost
+  #       run: |
+  #         aspire deploy \
+  #           --subscription-id ${{ secrets.AZURE_SUBSCRIPTION_ID }} \
+  #           --location ${{ secrets.AZURE_LOCATION }}
+
+  # Deployment to Azure Kubernetes Service (AKS)
+  # Uncomment to enable deployment to AKS
+  # deploy-aks:
+  #   name: Deploy to AKS
+  #   runs-on: ubuntu-latest
+  #   needs: ci
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   environment:
+  #     name: production-aks
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Download Artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: aspire-artifacts
+  #         path: ./artifacts
+  #
+  #     - name: Azure Login
+  #       uses: azure/login@v1
+  #       with:
+  #         creds: ${{ secrets.AZURE_CREDENTIALS }}
+  #
+  #     - name: Set AKS Context
+  #       run: |
+  #         az aks get-credentials \
+  #           --resource-group ${{ secrets.AKS_RESOURCE_GROUP }} \
+  #           --name ${{ secrets.AKS_CLUSTER_NAME }}
+  #
+  #     - name: Deploy to Kubernetes
+  #       run: |
+  #         kubectl apply -f ./artifacts/manifests/
+  #         kubectl rollout status deployment/server
+  #         kubectl rollout status deployment/frontend
+
+  # Deployment via Docker SSH (On-Premise / VPS)
+  # Uncomment to enable SSH deployment to remote server
+  # deploy-ssh:
+  #   name: Deploy via SSH to VPS
+  #   runs-on: ubuntu-latest
+  #   needs: ci
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   environment:
+  #     name: production-vps
+  #     url: https://your-server.com
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Download Artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: aspire-artifacts
+  #         path: ./artifacts
+  #
+  #     - name: Setup SSH
+  #       uses: webfactory/ssh-agent@v0.8.0
+  #       with:
+  #         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+  #
+  #     - name: Copy artifacts to server
+  #       run: |
+  #         scp -r ./artifacts/docker-compose.yml ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/app/
+  #         scp -r ./artifacts/.env ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:~/app/
+  #
+  #     - name: Deploy with Docker Compose
+  #       run: |
+  #         ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+  #           cd ~/app
+  #           docker compose pull
+  #           docker compose up -d
+  #           docker compose ps
+  #         EOF
 
 #  cd:
 #    name: Continuous Deployment
